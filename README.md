@@ -33,10 +33,14 @@ A browser extension that helps populate web forms with generated Swedish persona
 3. Click "Generate New Person" to get random Swedish personal data
 4. Use "Populate Form on Page" to automatically fill out forms on the current webpage
 5. Click "Clear Cached Data" to remove saved person data
+6. Right-click on any input field to open the context menu with options:
+   - **Populate Current Field**: Fill the current field with generated data
+   - **Populate All Fields**: Fill all fields on the page with generated data
+   - **Generate New & Populate All**: Generate new data and fill all fields on the page
 
 ## Screenshots
-
-[Screenshots pending]
+![Popup Screenshot](path/to/popup_screenshot.png)
+![Context Menu Screenshot](path/to/context_menu_screenshot.png)
 
 ## Development
 
@@ -46,5 +50,4 @@ The extension is built using vanilla JavaScript and uses:
 - Chrome Extension Manifest V3
 
 ## License
-
-[License pending]
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
