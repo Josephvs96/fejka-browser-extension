@@ -54,6 +54,40 @@ contextMenu.innerHTML = `
 `;
 document.body.appendChild(contextMenu);
 
+// Extracted function to create and update icon position
+function createAndUpdateIconPosition(field, icon) {
+  const updateIconPosition = () => {
+    const inputRect = field.getBoundingClientRect();
+    icon.style.top = inputRect.top + (inputRect.height - 16) / 2 + 'px';
+    icon.style.left = inputRect.right + 10 + 'px';
+  };
+  document.addEventListener('scroll', updateIconPosition, true);
+  window.addEventListener('resize', updateIconPosition);
+  return updateIconPosition;
+}
+
+// Extracted function to add event listeners to the field
+function addFieldEventListeners(field, icon, updateIconPosition) {
+  field.addEventListener('focus', () => {
+    updateIconPosition();
+    icon.style.opacity = '0.6';
+    document.body.appendChild(icon);
+  });
+
+  field.addEventListener('focusout', (event) => {
+    setTimeout(() => {
+      if (!icon.contains(document.activeElement)) {
+        icon.style.opacity = '0';
+        document.body.removeChild(icon);
+      }
+    }, 100);
+  });
+
+  icon.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+  });
+}
+
 // Function to wrap input in a container and add icon
 function addIconToInput(field) {
   // Skip if already processed or not visible
@@ -81,37 +115,11 @@ function addIconToInput(field) {
   icon.className = 'fejka-input-icon';
   icon.title = 'Generate fake data';
 
-  // Position icon relative to input
-  const updateIconPosition = () => {
-    const inputRect = field.getBoundingClientRect();
-    icon.style.top = inputRect.top + (inputRect.height - 16) / 2 + 'px';
-    icon.style.left = inputRect.right + 10 + 'px';
-  };
+  // Create and update icon position
+  const updateIconPosition = createAndUpdateIconPosition(field, icon);
 
-  // Update icon position on scroll and resize
-  document.addEventListener('scroll', updateIconPosition, true);
-  window.addEventListener('resize', updateIconPosition);
-
-  // Show/hide icon based on input focus
-  field.addEventListener('focus', () => {
-    updateIconPosition();
-    icon.style.opacity = '0.6';
-    document.body.appendChild(icon);
-  });
-
-  field.addEventListener('focusout', (event) => {
-    setTimeout(() => {
-      if (!icon.contains(document.activeElement)) {
-        icon.style.opacity = '0';
-        document.body.removeChild(icon);
-      }
-    }, 100);
-  });
-
-  // Prevent input from losing focus immediately when clicking the icon
-  icon.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-  });
+  // Add event listeners to the field
+  addFieldEventListeners(field, icon, updateIconPosition);
 
   // Move the field into the wrapper
   field.parentNode.insertBefore(wrapper, field);

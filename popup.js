@@ -108,7 +108,7 @@ function collectFormData() {
   return formData;
 }
 
-// Display person data in a unified format
+// Extracted function to display person data
 function displayPersonData(data) {
   const dataContainer = document.getElementById('data-container');
   dataContainer.innerHTML = ''; // Clear existing content
@@ -196,7 +196,23 @@ function displayPersonData(data) {
   chrome.storage.local.set({ 'fejkaPersonData': data });
 }
 
-// Handle messages from background script and content script
+// Extracted function to update the UI
+function updateUI(data) {
+  const container = document.getElementById('data-container');
+  const noDataState = document.getElementById('no-data-state');
+  
+  if (!data || Object.keys(data).length === 0) {
+    container.style.display = 'none';
+    noDataState.style.display = 'block';
+    return;
+  }
+
+  noDataState.style.display = 'none';
+  container.style.display = 'block';
+  displayPersonData(data);
+}
+
+// Centralized event listener for handling messages
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if ((request.action === 'populateForm' || request.action === 'updatePopupData') && request.data) {
     try {
@@ -224,19 +240,4 @@ function formatLabel(label) {
   return label
     .replace(/_/g, ' ')
     .replace(/\b\w/g, c => c.toUpperCase());
-}
-
-function updateUI(data) {
-  const container = document.getElementById('data-container');
-  const noDataState = document.getElementById('no-data-state');
-  
-  if (!data || Object.keys(data).length === 0) {
-    container.style.display = 'none';
-    noDataState.style.display = 'block';
-    return;
-  }
-
-  noDataState.style.display = 'none';
-  container.style.display = 'block';
-  displayPersonData(data);
 }

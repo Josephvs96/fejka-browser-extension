@@ -1,6 +1,34 @@
 chrome.runtime.onInstalled.addListener(() => {});
 
-// Helper function to check if popup is open and save data to extension storage
+// Extracted function to fetch and populate data
+async function fetchAndPopulateData(params = {}) {
+  try {
+    // Build the query string from params
+    const queryParams = new URLSearchParams({
+      json: '1',
+      ...params
+    }).toString();
+    
+    const response = await fetch(`https://fejka.nu?${queryParams}`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const personData = Array.isArray(data) && data.length > 0 ? data[0] : data;
+    return personData;
+  } catch (error) {
+    throw error;
+  }
+}
+
+// Extracted function to save data to storage
 function saveDataToStorage(personData) {
   chrome.storage.local.set({ 'fejkaPersonData': personData });
 }
@@ -33,35 +61,7 @@ chrome.action.onClicked.addListener(async (tab) => {
   }
 });
 
-// Function to fetch data and send it to popup or content script
-async function fetchAndPopulateData(params = {}) {
-  try {
-    // Build the query string from params
-    const queryParams = new URLSearchParams({
-      json: '1',
-      ...params
-    }).toString();
-    
-    const response = await fetch(`https://fejka.nu?${queryParams}`, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    const personData = Array.isArray(data) && data.length > 0 ? data[0] : data;
-    return personData;
-  } catch (error) {
-    throw error;
-  }
-}
-
-// Message handler
+// Centralized event listener for handling messages
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'fetchData') {
     // Return true immediately to indicate we will send a response asynchronously
