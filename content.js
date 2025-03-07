@@ -17,8 +17,42 @@ styleSheet.textContent = `
     position: static !important;
     display: contents !important;
   }
+  .fejka-context-menu {
+    position: fixed;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    padding: 0;
+    z-index: 1001;
+    display: none;
+    overflow: hidden;
+  }
+  .fejka-context-menu.active {
+    display: block;
+  }
+  .fejka-menu-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    font-size: 14px;
+    color: #333;
+  }
+  .fejka-menu-item:hover {
+    background-color: #f0f0f0;
+  }
 `;
 document.head.appendChild(styleSheet);
+
+// Add the context menu HTML to the document
+const contextMenu = document.createElement('div');
+contextMenu.className = 'fejka-context-menu';
+contextMenu.innerHTML = `
+  <div class="fejka-menu-item" data-action="populate-current">Populate Current Field</div>
+  <div class="fejka-menu-item" data-action="populate-all">Populate All Fields</div>
+  <div class="fejka-menu-item" data-action="generate-populate">Generate New & Populate All</div>
+`;
+document.body.appendChild(contextMenu);
 
 // Function to wrap input in a container and add icon
 function addIconToInput(field) {
@@ -51,7 +85,7 @@ function addIconToInput(field) {
   const updateIconPosition = () => {
     const inputRect = field.getBoundingClientRect();
     icon.style.top = inputRect.top + (inputRect.height - 16) / 2 + 'px';
-    icon.style.left = inputRect.right - 24 + 'px';
+    icon.style.left = inputRect.right + 10 + 'px';
   };
 
   // Update icon position on scroll and resize
@@ -81,32 +115,14 @@ function addIconToInput(field) {
     e.preventDefault();
     e.stopPropagation();
     
-    // Show loading state
-    icon.style.opacity = '0.3';
-
-    // Request data from background script
-    chrome.runtime.sendMessage({ 
-      action: 'fetchData',
-      params: {}
-    }, (response) => {
-      // Reset icon state
-      icon.style.opacity = '0.6';
-
-      if (response && response.data) {
-        // Update storage and populate field
-        chrome.storage.local.set({ 'fejkaPersonData': response.data });
-        try {
-          chrome.runtime.sendMessage({
-            action: 'updatePopupData',
-            data: response.data,
-            updateStorage: true
-          });
-        } catch (error) {
-          console.log('Could not update popup (probably not open)');
-        }
-        populateSingleField(field, response.data);
-      }
-    });
+    // Position and show the context menu
+    const rect = e.target.getBoundingClientRect();
+    contextMenu.style.top = rect.bottom + 'px';
+    contextMenu.style.left = rect.left + 'px';
+    contextMenu.classList.add('active');
+    
+    // Store the current field for reference
+    contextMenu.dataset.currentField = field.id || field.name || '';
   });
 }
 
@@ -340,6 +356,82 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     
     return true; // Keep the message channel open for async response
+  }
+});
+
+// Add click handlers for the context menu
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.fejka-context-menu') && !e.target.closest('.fejka-input-icon')) {
+    contextMenu.classList.remove('active');
+  }
+});
+
+contextMenu.addEventListener('click', (e) => {
+  const menuItem = e.target.closest('.fejka-menu-item');
+  if (!menuItem) return;
+
+  const action = menuItem.dataset.action;
+  contextMenu.classList.remove('active');
+
+  switch (action) {
+    case 'populate-current':
+      chrome.storage.local.get('fejkaPersonData', (result) => {
+        if (result.fejkaPersonData) {
+          const field = document.querySelector(`#${contextMenu.dataset.currentField}`) || 
+                       document.querySelector(`[name="${contextMenu.dataset.currentField}"]`);
+          if (field) {
+            populateSingleField(field, result.fejkaPersonData);
+          }
+        }
+      });
+      break;
+
+    case 'populate-all':
+      chrome.storage.local.get('fejkaPersonData', (result) => {
+        if (result.fejkaPersonData) {
+          chrome.runtime.sendMessage({
+            action: 'populateForm',
+            data: result.fejkaPersonData
+          });
+        }
+      });
+      break;
+
+    case 'generate-populate':
+      chrome.runtime.sendMessage({ 
+        action: 'fetchData',
+        params: {}
+      }, (response) => {
+        if (response && response.data) {
+          const personData = response.data;
+          // First save to storage
+          chrome.storage.local.set({ 'fejkaPersonData': personData }, () => {
+            // Then populate the form directly instead of sending another message
+            const inputFields = document.querySelectorAll('input, textarea, select');
+            let fieldsPopulated = 0;
+            
+            inputFields.forEach(field => {
+              if (!['submit', 'button', 'reset', 'image', 'file', 'hidden'].includes(field.type)) {
+                if (populateSingleField(field, personData)) {
+                  fieldsPopulated++;
+                }
+              }
+            });
+
+            // Update popup if open - wrapped in setTimeout to ensure proper message handling
+            setTimeout(() => {
+              chrome.runtime.sendMessage({
+                action: 'updatePopupData',
+                data: personData,
+                updateStorage: true
+              }).catch(() => {
+                // Silently handle error if popup is closed
+              });
+            }, 0);
+          });
+        }
+      });
+      break;
   }
 });
 

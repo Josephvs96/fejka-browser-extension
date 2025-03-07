@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', function () {
   const dataContainer = document.getElementById('data-container');
+  const noDataState = document.getElementById('no-data-state');
 
   // Load saved data from chrome.storage.local when popup opens
   chrome.storage.local.get('fejkaPersonData', function(result) {
@@ -9,8 +10,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // Also sync with localStorage for backward compatibility
         localStorage.setItem('fejkaPersonData', JSON.stringify(result.fejkaPersonData));
       } catch (error) {
-        // Silently handle error
-        console.error('Error loading person data:', error);
+        updateUI(null); // Show no-data state on error
       }
     } else {
       // Fallback to localStorage for backward compatibility
@@ -22,8 +22,10 @@ document.addEventListener('DOMContentLoaded', function () {
           // Sync with chrome.storage
           chrome.storage.local.set({ 'fejkaPersonData': parsedData });
         } catch (error) {
-          // Silently handle error
+          updateUI(null); // Show no-data state on error
         }
+      } else {
+        updateUI(null); // Show no-data state when no data exists
       }
     }
   });
@@ -34,14 +36,13 @@ document.addEventListener('DOMContentLoaded', function () {
     // Clear from both storage mechanisms
     chrome.storage.local.remove('fejkaPersonData');
     localStorage.removeItem('fejkaPersonData');
-    dataContainer.innerHTML = '';
+    updateUI(null); // Show no-data state after clearing
   });
 
   // Add button click handler for generating new data
   const button = document.getElementById('populate-button');
   button.addEventListener('click', function () {
-    // Clear any existing data
-    dataContainer.innerHTML = '';
+    updateUI(null); // Show loading state
 
     // Collect form parameters
     const params = {
@@ -56,6 +57,12 @@ document.addEventListener('DOMContentLoaded', function () {
     chrome.runtime.sendMessage({ 
       action: 'fetchData',
       params: params
+    }, (response) => {
+      if (response && response.data) {
+        displayPersonData(response.data);
+      } else {
+        updateUI(null); // Show no-data state if there was an error
+      }
     });
   });
 
@@ -198,8 +205,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         ? request.data[0]
         : request.data;
 
-      // Always update UI
-      displayPersonData(personData);
+      // Always update UI first
+      updateUI(personData);
 
       // Only update storage if flag is set or this is from popup
       if (request.updateStorage || sender.envType === 'extension_popup') {
@@ -207,7 +214,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         chrome.storage.local.set({ 'fejkaPersonData': personData });
       }
     } catch (error) {
-      console.error('Error updating popup data:', error);
+      updateUI(null); // Show no-data state on error
     }
   }
 });
@@ -217,4 +224,19 @@ function formatLabel(label) {
   return label
     .replace(/_/g, ' ')
     .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function updateUI(data) {
+  const container = document.getElementById('data-container');
+  const noDataState = document.getElementById('no-data-state');
+  
+  if (!data || Object.keys(data).length === 0) {
+    container.style.display = 'none';
+    noDataState.style.display = 'block';
+    return;
+  }
+
+  noDataState.style.display = 'none';
+  container.style.display = 'block';
+  displayPersonData(data);
 }

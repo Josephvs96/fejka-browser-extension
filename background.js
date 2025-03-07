@@ -2,21 +2,15 @@ chrome.runtime.onInstalled.addListener(() => {});
 
 // Helper function to check if popup is open and save data to extension storage
 function saveDataToStorage(personData) {
-  // Use chrome storage API instead of trying to access localStorage directly
-  chrome.storage.local.set({ 'fejkaPersonData': personData }, function() {
-    console.log('Person data saved to extension storage');
-  });
+  chrome.storage.local.set({ 'fejkaPersonData': personData });
 }
 
 // Original action click handler - can be kept for toolbar icon clicks
 chrome.action.onClicked.addListener(async (tab) => {
   try {
     const personData = await fetchAndPopulateData({});
-    
-    // Save data to extension storage regardless of popup state
     saveDataToStorage(personData);
     
-    // Try to update any open popup instances
     try {
       chrome.runtime.sendMessage({ 
         action: 'updatePopupData',
@@ -24,8 +18,7 @@ chrome.action.onClicked.addListener(async (tab) => {
         updateStorage: true
       });
     } catch (error) {
-      // Popup is not open, that's fine, we already saved to storage
-      console.log('No open popup to update');
+      // Popup is not open, that's fine
     }
 
     // Update content script in active tab
@@ -36,7 +29,7 @@ chrome.action.onClicked.addListener(async (tab) => {
       });
     }
   } catch (error) {
-    console.error('Error fetching data:', error);
+    // Handle error silently
   }
 });
 
@@ -71,36 +64,22 @@ async function fetchAndPopulateData(params = {}) {
 // Message handler
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'fetchData') {
+    // Return true immediately to indicate we will send a response asynchronously
     fetchAndPopulateData(request.params || {})
       .then(personData => {
-        // Send data back to the requesting script
         sendResponse({ data: personData });
-        
-        // Save data to extension storage
         saveDataToStorage(personData);
         
-        // Try to update any open popup instances
         try {
           chrome.runtime.sendMessage({ 
             action: 'updatePopupData',
             data: personData,
             updateStorage: true
+          }).catch(() => {
+            // Silently handle error if popup is closed
           });
         } catch (error) {
-          // Popup is not open, that's fine, we already saved to storage
-          console.log('No open popup to update');
-        }
-
-        // If request came from popup, update content script
-        if (sender.envType === 'extension_popup') {
-          chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-            if (tabs.length > 0) {
-              chrome.tabs.sendMessage(tabs[0].id, {
-                action: 'populateForm',
-                data: personData
-              });
-            }
-          });
+          // Popup is not open, that's fine
         }
       })
       .catch(error => {

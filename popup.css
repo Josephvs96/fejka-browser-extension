@@ -97,3 +97,16 @@ hr {
 #data-container::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
+
+#no-data-state {
+  padding: 2rem 1rem;
+  display: none;
+}
+
+#no-data-state .icon {
+  color: #dbdbdb;
+}
+
+#no-data-state p {
+  line-height: 1.5;
+}
