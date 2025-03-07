@@ -85,7 +85,7 @@ function addIconToInput(field) {
   const updateIconPosition = () => {
     const inputRect = field.getBoundingClientRect();
     icon.style.top = inputRect.top + (inputRect.height - 16) / 2 + 'px';
-    icon.style.left = inputRect.right - 20 + 'px';
+    icon.style.left = inputRect.right + 10 + 'px';
   };
 
   // Update icon position on scroll and resize
@@ -96,16 +96,26 @@ function addIconToInput(field) {
   field.addEventListener('focus', () => {
     updateIconPosition();
     icon.style.opacity = '0.6';
+    document.body.appendChild(icon);
   });
 
-  field.addEventListener('blur', () => {
-    icon.style.opacity = '0';
+  field.addEventListener('focusout', (event) => {
+    setTimeout(() => {
+      if (!icon.contains(document.activeElement)) {
+        icon.style.opacity = '0';
+        document.body.removeChild(icon);
+      }
+    }, 100);
   });
 
-  // Move the field into the wrapper and add icon to document body
+  // Prevent input from losing focus immediately when clicking the icon
+  icon.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+  });
+
+  // Move the field into the wrapper
   field.parentNode.insertBefore(wrapper, field);
   wrapper.appendChild(field);
-  document.body.appendChild(icon);
 
   // Initial position update
   updateIconPosition();
