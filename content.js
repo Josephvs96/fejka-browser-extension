@@ -85,7 +85,7 @@ function addIconToInput(field) {
   const updateIconPosition = () => {
     const inputRect = field.getBoundingClientRect();
     icon.style.top = inputRect.top + (inputRect.height - 16) / 2 + 'px';
-    icon.style.left = inputRect.right + 10 + 'px';
+    icon.style.left = inputRect.right - 20 + 'px';
   };
 
   // Update icon position on scroll and resize
@@ -126,6 +126,22 @@ function addIconToInput(field) {
   });
 }
 
+// Centralized function to populate all fields
+function populateAllFields(data) {
+  let fieldsPopulated = 0;
+  const inputFields = document.querySelectorAll('input, textarea, select');
+  
+  inputFields.forEach(field => {
+    if (!['submit', 'button', 'reset', 'image', 'file', 'hidden'].includes(field.type)) {
+      if (populateSingleField(field, data)) {
+        fieldsPopulated++;
+      }
+    }
+  });
+  
+  return fieldsPopulated;
+}
+
 // Function to populate a single field with relevant data
 function populateSingleField(field, data) {
   const identifiers = [
@@ -134,6 +150,8 @@ function populateSingleField(field, data) {
     field.getAttribute('data-field')?.toLowerCase(),
     field.placeholder?.toLowerCase(),
     field.getAttribute('aria-label')?.toLowerCase(),
+    field.getAttribute('blazor:bindings')?.toLowerCase(),
+    field.getAttribute('_bl_')?.toLowerCase()
   ].filter(Boolean);
 
   // Add label text if exists
@@ -154,10 +172,32 @@ function populateSingleField(field, data) {
     for (const identifier of identifiers) {
       if (!identifier) continue;
 
+      // Special handling for first/last name fields
+      if (identifier.includes('name')) {
+        if (identifier.includes('first') || identifier.includes('fname')) {
+          if (data.fname) {
+            matched = setFieldValue(field, data.fname);
+          } else if (data.name && data.name.includes(' ')) {
+            matched = setFieldValue(field, data.name.split(' ')[0]);
+          }
+          if (matched) break;
+        }
+        else if (identifier.includes('last') || identifier.includes('lname')) {
+          if (data.lname) {
+            matched = setFieldValue(field, data.lname);
+          } else if (data.name && data.name.includes(' ')) {
+            matched = setFieldValue(field, data.name.split(' ').slice(-1)[0]);
+          }
+          if (matched) break;
+        }
+        else if (data.name) {
+          matched = setFieldValue(field, data.name);
+          if (matched) break;
+        }
+        continue;
+      }
+
       const fieldMatches = {
-        'name': () => data.name,
-        'firstname': () => data.fname || (data.name ? data.name.split(' ')[0] : null),
-        'lastname': () => data.lname || (data.name ? data.name.split(' ').slice(-1)[0] : null),
         'street': () => data.street,
         'city': () => data.city,
         'zip': () => data.zip,
@@ -166,15 +206,15 @@ function populateSingleField(field, data) {
         'phone': () => data.phone,
         'email': () => data.email,
         'pnr': () => data.pnr,
-        'ssn': () => data.pnr, // Add SSN mapping
-        'socialsecuritynumber': () => data.pnr, // Add Social Security Number mapping
-        'personnummer': () => data.pnr, // Add Swedish Personal Number mapping
-        'personal': () => data.pnr, // Add another common variation
+        'ssn': () => data.pnr,
+        'socialsecuritynumber': () => data.pnr,
+        'personnummer': () => data.pnr,
+        'personal': () => data.pnr,
         'age': () => data.age,
         'address': () => data.address
       };
 
-      // First try exact matches
+      // Try exact matches
       for (const [key, getValue] of Object.entries(fieldMatches)) {
         if (identifier === key || identifier.includes(key.toLowerCase())) {
           const value = getValue();
@@ -233,129 +273,12 @@ addIconsToInputs();
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'populateForm') {
-    const data = message.data;
-    let fieldsPopulated = 0;
-    
-    // Find input fields and try to match them intelligently with our data
-    const inputFields = document.querySelectorAll('input, textarea, select');
-    
-    inputFields.forEach(field => {
-      // Skip submit buttons, hidden fields, etc.
-      if (['submit', 'button', 'reset', 'image', 'file', 'hidden'].includes(field.type)) {
-        return;
-      }
-      
-      // Try to identify the field purpose based on various attributes
-      let identifiers = [
-        field.id?.toLowerCase(),
-        field.name?.toLowerCase(),
-        field.getAttribute('data-field')?.toLowerCase(),
-        field.placeholder?.toLowerCase(),
-        field.getAttribute('aria-label')?.toLowerCase(),
-        // Add Blazor-specific attributes
-        field.getAttribute('blazor:bindings')?.toLowerCase(),
-        field.getAttribute('_bl_')?.toLowerCase()
-      ].filter(Boolean); // Remove nulls/undefined
-      
-      // Add any label text associated with the input
-      const labels = document.querySelectorAll(`label[for="${field.id}"]`);
-      if (labels.length > 0) {
-        identifiers.push(labels[0].textContent.toLowerCase().trim());
-      }
-      
-      // For each field attribute, try to find a match in our data
-      let matched = false;
-      
-      // Special case for email type
-      if (field.type === 'email' && data.email) {
-        setFieldValue(field, data.email);
-        matched = true;
-        fieldsPopulated++;
-      } 
-      // Special case for phone type
-      else if ((field.type === 'tel' || field.name?.includes('phone') || field.id?.includes('phone')) && data.phone) {
-        setFieldValue(field, data.phone);
-        matched = true;
-        fieldsPopulated++;
-      }
-      // Special case for fields containing 'name', but being first name and last name
-      else if (!matched && identifiers.some(id => id?.includes('name'))) {
-        if (identifiers.some(id => id?.includes('first') || id?.includes('fname'))) {
-          if (data.fname) {
-            setFieldValue(field, data.fname);
-            matched = true;
-            fieldsPopulated++;
-          } else if (data.name && data.name.includes(' ')) {
-            setFieldValue(field, data.name.split(' ')[0]);
-            matched = true;
-            fieldsPopulated++;
-          }
-        }
-        else if (identifiers.some(id => id?.includes('last') || id?.includes('lname'))) {
-          if (data.lname) {
-            setFieldValue(field, data.lname);
-            matched = true;
-            fieldsPopulated++;
-          } else if (data.name && data.name.includes(' ')) {
-            setFieldValue(field, data.name.split(' ').slice(-1)[0]);
-            matched = true;
-            fieldsPopulated++;
-          }
-        }
-        else if (data.name) {
-          setFieldValue(field, data.name);
-          matched = true;
-          fieldsPopulated++;
-        }
-      }
-      
-      // Try direct matching
-      if (!matched) {
-        for (const identifier of identifiers) {
-          if (!identifier) continue;
-          
-          for (const [key, value] of Object.entries(data)) {
-            // Exact field matches
-            if (identifier === key) {
-              setFieldValue(field, value);
-              matched = true;
-              fieldsPopulated++;
-              break;
-            }
-            
-            // Partial field matches based on common naming patterns
-            const fieldMap = {
-              'street': ['street', 'address', 'addr', 'street-address'],
-              'city': ['city', 'town', 'locality'],
-              'zip': ['zip', 'postal', 'postcode', 'post-code'],
-              'gender': ['gender', 'sex'],
-              'email': ['email', 'mail', 'e-mail'],
-              'phone': ['phone', 'tel', 'telephone', 'mobile', 'cell'],
-              'pnr': ['pnr', 'personal-number', 'ssn', 'social', 'id-number'],
-              'age': ['age', 'years'],
-              'address': ['address', 'addr', 'location']
-            };
-            
-            if (fieldMap[key] && fieldMap[key].some(term => identifier.includes(term))) {
-              setFieldValue(field, value);
-              matched = true;
-              fieldsPopulated++;
-              break;
-            }
-          }
-          
-          if (matched) break;
-        }
-      }
-    });
-    
-    // Send response with the count of populated fields
+    const fieldsPopulated = populateAllFields(message.data);
     sendResponse({
       success: true,
       fieldsPopulated: fieldsPopulated
     });
-    
-    return true; // Keep the message channel open for async response
+    return true;
   }
 });
 
@@ -389,10 +312,7 @@ contextMenu.addEventListener('click', (e) => {
     case 'populate-all':
       chrome.storage.local.get('fejkaPersonData', (result) => {
         if (result.fejkaPersonData) {
-          chrome.runtime.sendMessage({
-            action: 'populateForm',
-            data: result.fejkaPersonData
-          });
+          populateAllFields(result.fejkaPersonData);
         }
       });
       break;
@@ -404,21 +324,9 @@ contextMenu.addEventListener('click', (e) => {
       }, (response) => {
         if (response && response.data) {
           const personData = response.data;
-          // First save to storage
           chrome.storage.local.set({ 'fejkaPersonData': personData }, () => {
-            // Then populate the form directly instead of sending another message
-            const inputFields = document.querySelectorAll('input, textarea, select');
-            let fieldsPopulated = 0;
-            
-            inputFields.forEach(field => {
-              if (!['submit', 'button', 'reset', 'image', 'file', 'hidden'].includes(field.type)) {
-                if (populateSingleField(field, personData)) {
-                  fieldsPopulated++;
-                }
-              }
-            });
+            populateAllFields(personData);
 
-            // Update popup if open - wrapped in setTimeout to ensure proper message handling
             setTimeout(() => {
               chrome.runtime.sendMessage({
                 action: 'updatePopupData',
