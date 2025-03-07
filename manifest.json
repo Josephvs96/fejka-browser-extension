@@ -7,8 +7,10 @@
     "activeTab",
     "scripting",
     "background",
-    "http://*/",
-    "https://*/"
+    "storage"
+  ],
+  "host_permissions": [
+    "https://fejka.nu/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -19,6 +21,10 @@
       "js": ["content.js"]
     }
   ],
+  "web_accessible_resources": [{
+    "resources": ["images/*"],
+    "matches": ["<all_urls>"]
+  }],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {

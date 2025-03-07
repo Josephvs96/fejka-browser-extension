@@ -1,19 +1,38 @@
 document.addEventListener('DOMContentLoaded', function () {
   const dataContainer = document.getElementById('data-container');
 
-  // Load saved data when popup opens
-  const savedData = localStorage.getItem('fejkaPersonData');
-  if (savedData) {
-    try {
-      displayPersonData(JSON.parse(savedData));
-    } catch (error) {
-      console.error('Error loading saved data:', error);
+  // Load saved data from chrome.storage.local when popup opens
+  chrome.storage.local.get('fejkaPersonData', function(result) {
+    if (result.fejkaPersonData) {
+      try {
+        displayPersonData(result.fejkaPersonData);
+        // Also sync with localStorage for backward compatibility
+        localStorage.setItem('fejkaPersonData', JSON.stringify(result.fejkaPersonData));
+      } catch (error) {
+        // Silently handle error
+        console.error('Error loading person data:', error);
+      }
+    } else {
+      // Fallback to localStorage for backward compatibility
+      const savedData = localStorage.getItem('fejkaPersonData');
+      if (savedData) {
+        try {
+          const parsedData = JSON.parse(savedData);
+          displayPersonData(parsedData);
+          // Sync with chrome.storage
+          chrome.storage.local.set({ 'fejkaPersonData': parsedData });
+        } catch (error) {
+          // Silently handle error
+        }
+      }
     }
-  }
+  });
 
   // Add clear data button handler
   const clearDataButton = document.getElementById('clear-data-button');
   clearDataButton.addEventListener('click', function() {
+    // Clear from both storage mechanisms
+    chrome.storage.local.remove('fejkaPersonData');
     localStorage.removeItem('fejkaPersonData');
     dataContainer.innerHTML = '';
   });
@@ -165,22 +184,30 @@ function displayPersonData(data) {
     }
   });
 
-  // Save the data to localStorage
+  // Save the data to both storage mechanisms
   localStorage.setItem('fejkaPersonData', JSON.stringify(data));
+  chrome.storage.local.set({ 'fejkaPersonData': data });
 }
 
-// Handle messages from background script
+// Handle messages from background script and content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'populateForm' && request.data) {
+  if ((request.action === 'populateForm' || request.action === 'updatePopupData') && request.data) {
     try {
       // Handle case where data might still be an array
       const personData = Array.isArray(request.data) && request.data.length > 0
         ? request.data[0]
         : request.data;
 
+      // Always update UI
       displayPersonData(personData);
+
+      // Only update storage if flag is set or this is from popup
+      if (request.updateStorage || sender.envType === 'extension_popup') {
+        localStorage.setItem('fejkaPersonData', JSON.stringify(personData));
+        chrome.storage.local.set({ 'fejkaPersonData': personData });
+      }
     } catch (error) {
-      console.error('Error displaying data:', error);
+      console.error('Error updating popup data:', error);
     }
   }
 });
