@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "Form Populator Extension",
+  "version": "1.0",
+  "description": "A Chrome extension that populates a form with data from an API.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "background",
+    "http://*/",
+    "https://*/"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "images/icon16.png",
+      "48": "images/icon48.png",
+      "128": "images/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "images/icon16.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
+  }
+}
