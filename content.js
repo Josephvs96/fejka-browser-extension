@@ -91,11 +91,11 @@ function addFieldEventListeners(field, icon, updateIconPosition) {
 // Function to wrap input in a container and add icon
 function addIconToInput(field) {
   // Skip if already processed or not visible
-  if (field.closest('.fejka-input-wrapper') || 
-      field.type === 'hidden' || 
-      field.style.display === 'none' ||
-      field.style.visibility === 'hidden' ||
-      ['submit', 'button', 'reset', 'image', 'file', 'hidden'].includes(field.type)) {
+  if (field.closest('.fejka-input-wrapper') ||
+    field.type === 'hidden' ||
+    field.style.display === 'none' ||
+    field.style.visibility === 'hidden' ||
+    ['submit', 'button', 'reset', 'image', 'file', 'hidden'].includes(field.type)) {
     return;
   }
 
@@ -132,13 +132,13 @@ function addIconToInput(field) {
   icon.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     // Position and show the context menu
     const rect = e.target.getBoundingClientRect();
     contextMenu.style.top = rect.bottom + 'px';
     contextMenu.style.left = rect.left + 'px';
     contextMenu.classList.add('active');
-    
+
     // Store the current field for reference
     contextMenu.dataset.currentField = field.id || field.name || '';
   });
@@ -148,7 +148,7 @@ function addIconToInput(field) {
 function populateAllFields(data) {
   let fieldsPopulated = 0;
   const inputFields = document.querySelectorAll('input, textarea, select');
-  
+
   inputFields.forEach(field => {
     if (!['submit', 'button', 'reset', 'image', 'file', 'hidden'].includes(field.type)) {
       if (populateSingleField(field, data)) {
@@ -156,7 +156,7 @@ function populateAllFields(data) {
       }
     }
   });
-  
+
   return fieldsPopulated;
 }
 
@@ -242,7 +242,7 @@ function populateSingleField(field, data) {
           }
         }
       }
-      
+
       // If no match found, try the placeholder pattern for Swedish personal numbers
       if (!matched && field.placeholder?.match(/^\d{8}-\d{4}$/)) {
         matched = setFieldValue(field, data.pnr);
@@ -318,11 +318,25 @@ contextMenu.addEventListener('click', (e) => {
     case 'populate-current':
       chrome.storage.local.get('fejkaPersonData', (result) => {
         if (result.fejkaPersonData) {
-          const field = document.querySelector(`#${contextMenu.dataset.currentField}`) || 
-                       document.querySelector(`[name="${contextMenu.dataset.currentField}"]`);
+          const field = document.querySelector(`#${contextMenu.dataset.currentField}`) ||
+            document.querySelector(`[name="${contextMenu.dataset.currentField}"]`);
           if (field) {
             populateSingleField(field, result.fejkaPersonData);
           }
+        } else {
+          chrome.runtime.sendMessage({
+            action: 'fetchData',
+            params: {}
+          }, (response) => {
+            if (response && response.data) {
+              const personData = response.data;
+              const field = document.querySelector(`#${contextMenu.dataset.currentField}`) ||
+                document.querySelector(`[name="${contextMenu.dataset.currentField}"]`);
+              if (field) {
+                populateSingleField(field, personData);
+              }
+            }
+          });
         }
       });
       break;
@@ -331,12 +345,22 @@ contextMenu.addEventListener('click', (e) => {
       chrome.storage.local.get('fejkaPersonData', (result) => {
         if (result.fejkaPersonData) {
           populateAllFields(result.fejkaPersonData);
+        } else {
+          chrome.runtime.sendMessage({
+            action: 'fetchData',
+            params: {}
+          }, (response) => {
+            if (response && response.data) {
+              const personData = response.data;
+              populateAllFields(personData);
+            }
+          });
         }
       });
       break;
 
     case 'generate-populate':
-      chrome.runtime.sendMessage({ 
+      chrome.runtime.sendMessage({
         action: 'fetchData',
         params: {}
       }, (response) => {
@@ -370,10 +394,10 @@ function setFieldValue(field, value) {
   try {
     // Store original value to check if it changed
     const originalValue = field.value;
-    
+
     // Set the value
     field.value = value;
-    
+
     // Create and dispatch events
     const events = ['input', 'change'];
     events.forEach(eventType => {
