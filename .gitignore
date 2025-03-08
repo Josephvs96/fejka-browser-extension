@@ -1,7 +1,39 @@
-.DS_Store
+# Dependencies
 node_modules/
+/.pnp
+.pnp.js
+
+# Production build
+/dist
+/build
+
+# Development
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+logs
 *.log
-.env
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor directories and files
 .idea/
 .vscode/
-*.zip
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Testing
+/coverage
+
+# Misc
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
