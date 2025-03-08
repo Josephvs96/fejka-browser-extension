@@ -9,6 +9,7 @@ styleSheet.textContent = `
     transition: opacity 0.2s;
     z-index: 1000;
     pointer-events: auto;
+    margin-left: 8px; /* Add margin to separate from input */
   }
   .fejka-input-icon:hover {
     opacity: 1 !important;
@@ -58,11 +59,35 @@ document.body.appendChild(contextMenu);
 function createAndUpdateIconPosition(field, icon) {
   const updateIconPosition = () => {
     const inputRect = field.getBoundingClientRect();
-    icon.style.top = inputRect.top + (inputRect.height - 16) / 2 + 'px';
-    icon.style.left = inputRect.right + 10 + 'px';
+    
+    // Check if the field is actually visible
+    if (inputRect.width === 0 || inputRect.height === 0) {
+      icon.style.display = 'none';
+      return;
+    }
+
+    // Get the computed style of the input
+    const computedStyle = window.getComputedStyle(field);
+    
+    // Position the icon outside the input field
+    icon.style.top = `${inputRect.top + (inputRect.height - 16) / 2}px`;
+    icon.style.left = `${inputRect.right + 4}px`; // Position 4px to the right of the input
+    icon.style.display = 'block';
   };
+
+  // Add scroll event listeners at different levels
   document.addEventListener('scroll', updateIconPosition, true);
   window.addEventListener('resize', updateIconPosition);
+  
+  // Also update on any DOM mutations that might affect layout
+  const layoutObserver = new MutationObserver(updateIconPosition);
+  layoutObserver.observe(document.body, {
+    attributes: true,
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
+
   return updateIconPosition;
 }
 
@@ -88,10 +113,10 @@ function addFieldEventListeners(field, icon, updateIconPosition) {
   });
 }
 
-// Function to wrap input in a container and add icon
+// Function to handle icon positioning and management for an input
 function addIconToInput(field) {
   // Skip if already processed or not visible
-  if (field.closest('.fejka-input-wrapper') ||
+  if (field.dataset.fejkaProcessed ||
     field.type === 'hidden' ||
     field.style.display === 'none' ||
     field.style.visibility === 'hidden' ||
@@ -105,9 +130,8 @@ function addIconToInput(field) {
     return;
   }
 
-  // Create wrapper
-  const wrapper = document.createElement('div');
-  wrapper.className = 'fejka-input-wrapper';
+  // Mark field as processed
+  field.dataset.fejkaProcessed = 'true';
 
   // Create icon
   const icon = document.createElement('img');
@@ -120,10 +144,6 @@ function addIconToInput(field) {
 
   // Add event listeners to the field
   addFieldEventListeners(field, icon, updateIconPosition);
-
-  // Move the field into the wrapper
-  field.parentNode.insertBefore(wrapper, field);
-  wrapper.appendChild(field);
 
   // Initial position update
   updateIconPosition();
