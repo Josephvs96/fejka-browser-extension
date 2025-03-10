@@ -22,10 +22,13 @@ styleSheet.textContent = `
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     padding: 4px 0;
     z-index: 999999;
-    display: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
   }
   .fejka-context-menu.active {
-    display: block;
+    opacity: 1;
+    visibility: visible;
   }
   .fejka-menu-item {
     padding: 8px 12px;
@@ -33,6 +36,7 @@ styleSheet.textContent = `
     white-space: nowrap;
     font-size: 14px;
     color: #333;
+    transition: background-color 0.15s ease;
   }
   .fejka-menu-item:hover {
     background-color: #f0f0f0;
@@ -57,13 +61,16 @@ styleSheet.textContent = `
     border-radius: 4px;
     box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
     padding: 4px 0;
-    display: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
     min-width: 150px;
     margin-left: -1px;
   }
   .fejka-submenu:hover .fejka-submenu-content,
-  .fejka-submenu-content:hover {
-    display: block;
+  .fejka-submenu-content.active {
+    opacity: 1;
+    visibility: visible;
   }
 `;
 document.head.appendChild(styleSheet);
@@ -365,18 +372,52 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 let activeSubMenu = null;
+let menuHideTimeout;
+let submenuHideTimeout;
 
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.fejka-context-menu') && !e.target.closest('.fejka-input-icon')) {
+    clearTimeout(menuHideTimeout);
     contextMenu.classList.remove('active');
+    if (activeSubMenu) {
+      activeSubMenu.classList.remove('active');
+      activeSubMenu = null;
+    }
   }
 });
 
 const subMenu = contextMenu.querySelector('.fejka-submenu');
 const subMenuContent = subMenu.querySelector('.fejka-submenu-content');
 
+function positionSubmenu() {
+  const rect = subMenuContent.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  // Check if submenu would go outside viewport on the right
+  if (rect.right > viewportWidth) {
+    subMenuContent.style.left = 'auto';
+    subMenuContent.style.right = '100%';
+    subMenuContent.style.marginLeft = '0';
+    subMenuContent.style.marginRight = '-1px';
+  } else {
+    subMenuContent.style.left = '100%';
+    subMenuContent.style.right = 'auto';
+    subMenuContent.style.marginLeft = '-1px';
+    subMenuContent.style.marginRight = '0';
+  }
+
+  // Check if submenu would go outside viewport on the bottom
+  if (rect.bottom > viewportHeight) {
+    const overflowAmount = rect.bottom - viewportHeight;
+    subMenuContent.style.top = `${-overflowAmount}px`;
+  }
+}
+
 subMenu.addEventListener('mouseenter', () => {
-  subMenuContent.style.display = 'block';
+  clearTimeout(submenuHideTimeout);
+  positionSubmenu();
+  subMenuContent.classList.add('active');
   activeSubMenu = subMenuContent;
 });
 
@@ -388,19 +429,24 @@ subMenu.addEventListener('mouseleave', (e) => {
                        e.clientY <= rect.bottom;
   
   if (!isOverSubmenu) {
-    subMenuContent.style.display = 'none';
-    activeSubMenu = null;
+    submenuHideTimeout = setTimeout(() => {
+      subMenuContent.classList.remove('active');
+      activeSubMenu = null;
+    }, 150); // Small delay before hiding
   }
 });
 
 subMenuContent.addEventListener('mouseenter', () => {
-  subMenuContent.style.display = 'block';
+  clearTimeout(submenuHideTimeout);
+  subMenuContent.classList.add('active');
   activeSubMenu = subMenuContent;
 });
 
 subMenuContent.addEventListener('mouseleave', () => {
-  subMenuContent.style.display = 'none';
-  activeSubMenu = null;
+  submenuHideTimeout = setTimeout(() => {
+    subMenuContent.classList.remove('active');
+    activeSubMenu = null;
+  }, 150); // Small delay before hiding
 });
 
 contextMenu.addEventListener('click', (e) => {
