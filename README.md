@@ -14,6 +14,9 @@ A browser extension that helps populate web forms with generated Swedish persona
   - Age range
   - Gender
 - Automatically detect and fill form fields on any webpage
+  - Supports HTML5 autocomplete attributes
+  - Smart C/O address detection and handling
+  - Intelligent field matching based on IDs, names, labels, and attributes
 - Save previously generated data for quick reuse
 - Dark/Light theme support
 - Clear cached data when needed

@@ -9,14 +9,10 @@ styleSheet.textContent = `
     transition: opacity 0.2s;
     z-index: 1000;
     pointer-events: auto;
-    margin-left: 8px; /* Add margin to separate from input */
+    margin-left: 8px;
   }
   .fejka-input-icon:hover {
     opacity: 1 !important;
-  }
-  .fejka-input-wrapper {
-    position: static !important;
-    display: contents !important;
   }
   .fejka-context-menu {
     position: fixed;
@@ -24,13 +20,15 @@ styleSheet.textContent = `
     border: 1px solid #ccc;
     border-radius: 4px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    padding: 0;
-    z-index: 1001;
-    display: none;
-    overflow: hidden;
+    padding: 4px 0;
+    z-index: 999999;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
   }
   .fejka-context-menu.active {
-    display: block;
+    opacity: 1;
+    visibility: visible;
   }
   .fejka-menu-item {
     padding: 8px 12px;
@@ -38,9 +36,41 @@ styleSheet.textContent = `
     white-space: nowrap;
     font-size: 14px;
     color: #333;
+    transition: background-color 0.15s ease;
   }
   .fejka-menu-item:hover {
     background-color: #f0f0f0;
+  }
+  .fejka-submenu {
+    position: relative;
+    padding-right: 24px;
+  }
+  .fejka-submenu::after {
+    content: '▶';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  .fejka-submenu-content {
+    position: absolute;
+    left: 100%;
+    top: 0;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+    padding: 4px 0;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    min-width: 150px;
+    margin-left: -1px;
+  }
+  .fejka-submenu:hover .fejka-submenu-content,
+  .fejka-submenu-content.active {
+    opacity: 1;
+    visibility: visible;
   }
 `;
 document.head.appendChild(styleSheet);
@@ -51,7 +81,25 @@ contextMenu.innerHTML = `
   <div class="fejka-menu-item" data-action="populate-current">Populate Current Field</div>
   <div class="fejka-menu-item" data-action="populate-all">Populate All Fields</div>
   <div class="fejka-menu-item" data-action="generate-populate">Generate New & Populate All</div>
+   <div class="fejka-menu-item fejka-submenu" data-action="choose-field">
+    Choose Field
+    <div class="fejka-submenu-content">
+      <div class="fejka-menu-item" data-field="name">Full Name</div>
+      <div class="fejka-menu-item" data-field="fname">First Name</div>
+      <div class="fejka-menu-item" data-field="lname">Last Name</div>
+      <div class="fejka-menu-item" data-field="email">Email</div>
+      <div class="fejka-menu-item" data-field="phone">Phone</div>
+      <div class="fejka-menu-item" data-field="pnr">Personal Number</div>
+      <div class="fejka-menu-item" data-field="street">Street</div>
+      <div class="fejka-menu-item" data-field="city">City</div>
+      <div class="fejka-menu-item" data-field="zip">Zip Code</div>
+      <div class="fejka-menu-item" data-field="address">Full Address</div>
+      <div class="fejka-menu-item" data-field="age">Age</div>
+      <div class="fejka-menu-item" data-field="gender">Gender</div>
+    </div>
+  </div>
 `;
+
 document.body.appendChild(contextMenu);
 
 function createAndUpdateIconPosition(field, icon) {
@@ -134,10 +182,9 @@ function addIconToInput(field) {
     e.stopPropagation();
 
     const rect = e.target.getBoundingClientRect();
-    contextMenu.style.top = rect.bottom + 'px';
-    contextMenu.style.left = rect.left + 'px';
+    contextMenu.style.top = `${rect.bottom}px`;
+    contextMenu.style.left = `${rect.left}px`;
     contextMenu.classList.add('active');
-
     contextMenu.dataset.currentField = field.id || field.name || '';
   });
 }
@@ -165,8 +212,30 @@ function populateSingleField(field, data) {
     field.placeholder?.toLowerCase(),
     field.getAttribute('aria-label')?.toLowerCase(),
     field.getAttribute('blazor:bindings')?.toLowerCase(),
-    field.getAttribute('_bl_')?.toLowerCase()
+    field.getAttribute('_bl_')?.toLowerCase(),
   ].filter(Boolean);
+
+  // Handle both autocomplete attribute variations
+  const autoComplete = field.getAttribute('autocomplete') || field.getAttribute('auto-complete');
+
+  // Check for C/O address variations
+  const coPatterns = [
+    /\bc\.?o\.?/i,      // matches c.o., co., c.o, co
+    /\bc\s*\/\s*o\b/i,  // matches c/o, c / o
+    /\bco[-\s]?addr/i,  // matches co-address, coaddress, co address
+    /care\s+of\b/i      // matches "care of"
+  ];
+
+  // Check if any identifier contains C/O patterns
+  const isCoAddress = identifiers.some(identifier => {
+    if (!identifier) return false;
+    return coPatterns.some(pattern => pattern.test(identifier));
+  });
+
+  // If it's a C/O field, don't populate it
+  if (isCoAddress) {
+    return false;
+  }
 
   const labels = document.querySelectorAll(`label[for="${field.id}"]`);
   if (labels.length > 0) {
@@ -175,6 +244,13 @@ function populateSingleField(field, data) {
 
   let matched = false;
 
+  // Check autocomplete attribute first
+  if (autoComplete === 'street-address' && data.street) {
+    matched = setFieldValue(field, data.street);
+    if (matched) return matched;
+  }
+
+  // Rest of the function remains the same
   if (field.type === 'email' && data.email) {
     matched = setFieldValue(field, data.email);
   } else if (field.type === 'tel' && data.phone) {
@@ -210,11 +286,17 @@ function populateSingleField(field, data) {
 
       const fieldMatches = {
         'street': () => data.street,
+        'street-address': () => data.street,
+        'address-line1': () => data.street,
         'city': () => data.city,
+        'address-level2': () => data.city,
         'zip': () => data.zip,
         'postal': () => data.zip,
+        'postal-code': () => data.zip,
         'gender': () => data.gender,
+        'sex': () => data.gender,
         'phone': () => data.phone,
+        'tel': () => data.phone,
         'email': () => data.email,
         'pnr': () => data.pnr,
         'ssn': () => data.pnr,
@@ -289,86 +371,186 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+let activeSubMenu = null;
+let menuHideTimeout;
+let submenuHideTimeout;
+
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.fejka-context-menu') && !e.target.closest('.fejka-input-icon')) {
+    clearTimeout(menuHideTimeout);
     contextMenu.classList.remove('active');
+    if (activeSubMenu) {
+      activeSubMenu.classList.remove('active');
+      activeSubMenu = null;
+    }
   }
+});
+
+const subMenu = contextMenu.querySelector('.fejka-submenu');
+const subMenuContent = subMenu.querySelector('.fejka-submenu-content');
+
+function positionSubmenu() {
+  const rect = subMenuContent.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  // Check if submenu would go outside viewport on the right
+  if (rect.right > viewportWidth) {
+    subMenuContent.style.left = 'auto';
+    subMenuContent.style.right = '100%';
+    subMenuContent.style.marginLeft = '0';
+    subMenuContent.style.marginRight = '-1px';
+  } else {
+    subMenuContent.style.left = '100%';
+    subMenuContent.style.right = 'auto';
+    subMenuContent.style.marginLeft = '-1px';
+    subMenuContent.style.marginRight = '0';
+  }
+
+  // Check if submenu would go outside viewport on the bottom
+  if (rect.bottom > viewportHeight) {
+    const overflowAmount = rect.bottom - viewportHeight;
+    subMenuContent.style.top = `${-overflowAmount}px`;
+  }
+}
+
+subMenu.addEventListener('mouseenter', () => {
+  clearTimeout(submenuHideTimeout);
+  positionSubmenu();
+  subMenuContent.classList.add('active');
+  activeSubMenu = subMenuContent;
+});
+
+subMenu.addEventListener('mouseleave', (e) => {
+  const rect = subMenuContent.getBoundingClientRect();
+  const isOverSubmenu = e.clientX >= rect.left && 
+                       e.clientX <= rect.right && 
+                       e.clientY >= rect.top && 
+                       e.clientY <= rect.bottom;
+  
+  if (!isOverSubmenu) {
+    submenuHideTimeout = setTimeout(() => {
+      subMenuContent.classList.remove('active');
+      activeSubMenu = null;
+    }, 150); // Small delay before hiding
+  }
+});
+
+subMenuContent.addEventListener('mouseenter', () => {
+  clearTimeout(submenuHideTimeout);
+  subMenuContent.classList.add('active');
+  activeSubMenu = subMenuContent;
+});
+
+subMenuContent.addEventListener('mouseleave', () => {
+  submenuHideTimeout = setTimeout(() => {
+    subMenuContent.classList.remove('active');
+    activeSubMenu = null;
+  }, 150); // Small delay before hiding
 });
 
 contextMenu.addEventListener('click', (e) => {
   const menuItem = e.target.closest('.fejka-menu-item');
-  if (!menuItem) return;
-
+  if (!menuItem || menuItem.classList.contains('fejka-submenu')) return;
+  
+  const fieldType = menuItem.dataset.field;
   const action = menuItem.dataset.action;
-  contextMenu.classList.remove('active');
-
-  switch (action) {
-    case 'populate-current':
-      chrome.storage.local.get('fejkaPersonData', (result) => {
-        if (result.fejkaPersonData) {
-          const field = document.querySelector(`#${contextMenu.dataset.currentField}`) ||
-            document.querySelector(`[name="${contextMenu.dataset.currentField}"]`);
-          if (field) {
-            populateSingleField(field, result.fejkaPersonData);
+  
+  if (fieldType) {
+    contextMenu.classList.remove('active');
+    chrome.storage.local.get('fejkaPersonData', (result) => {
+      const field = document.querySelector(`#${contextMenu.dataset.currentField}`) ||
+        document.querySelector(`[name="${contextMenu.dataset.currentField}"]`);
+      
+      if (result.fejkaPersonData && field) {
+        setFieldValue(field, result.fejkaPersonData[fieldType]);
+      } else {
+        chrome.runtime.sendMessage({
+          action: 'fetchData',
+          params: {}
+        }, (response) => {
+          if (response && response.data && field) {
+            const personData = response.data;
+            chrome.storage.local.set({ 'fejkaPersonData': personData });
+            setFieldValue(field, personData[fieldType]);
           }
-        } else {
-          chrome.runtime.sendMessage({
-            action: 'fetchData',
-            params: {}
-          }, (response) => {
-            if (response && response.data) {
-              const personData = response.data;
-              const field = document.querySelector(`#${contextMenu.dataset.currentField}`) ||
-                document.querySelector(`[name="${contextMenu.dataset.currentField}"]`);
-              if (field) {
-                populateSingleField(field, personData);
+        });
+      }
+    });
+    return;
+  }
+
+  // Handle other menu actions
+  if (action) {
+    contextMenu.classList.remove('active');
+    switch(action) {
+      case 'populate-current':
+        chrome.storage.local.get('fejkaPersonData', (result) => {
+          if (result.fejkaPersonData) {
+            const field = document.querySelector(`#${contextMenu.dataset.currentField}`) ||
+              document.querySelector(`[name="${contextMenu.dataset.currentField}"]`);
+            if (field) {
+              populateSingleField(field, result.fejkaPersonData);
+            }
+          } else {
+            chrome.runtime.sendMessage({
+              action: 'fetchData',
+              params: {}
+            }, (response) => {
+              if (response && response.data) {
+                const personData = response.data;
+                const field = document.querySelector(`#${contextMenu.dataset.currentField}`) ||
+                  document.querySelector(`[name="${contextMenu.dataset.currentField}"]`);
+                if (field) {
+                  populateSingleField(field, personData);
+                }
               }
-            }
-          });
-        }
-      });
-      break;
-
-    case 'populate-all':
-      chrome.storage.local.get('fejkaPersonData', (result) => {
-        if (result.fejkaPersonData) {
-          populateAllFields(result.fejkaPersonData);
-        } else {
-          chrome.runtime.sendMessage({
-            action: 'fetchData',
-            params: {}
-          }, (response) => {
-            if (response && response.data) {
-              const personData = response.data;
+            });
+          }
+        });
+        break;
+  
+      case 'populate-all':
+        chrome.storage.local.get('fejkaPersonData', (result) => {
+          if (result.fejkaPersonData) {
+            populateAllFields(result.fejkaPersonData);
+          } else {
+            chrome.runtime.sendMessage({
+              action: 'fetchData',
+              params: {}
+            }, (response) => {
+              if (response && response.data) {
+                const personData = response.data;
+                populateAllFields(personData);
+              }
+            });
+          }
+        });
+        break;
+  
+      case 'generate-populate':
+        chrome.runtime.sendMessage({
+          action: 'fetchData',
+          params: {}
+        }, (response) => {
+          if (response && response.data) {
+            const personData = response.data;
+            chrome.storage.local.set({ 'fejkaPersonData': personData }, () => {
               populateAllFields(personData);
-            }
-          });
-        }
-      });
-      break;
-
-    case 'generate-populate':
-      chrome.runtime.sendMessage({
-        action: 'fetchData',
-        params: {}
-      }, (response) => {
-        if (response && response.data) {
-          const personData = response.data;
-          chrome.storage.local.set({ 'fejkaPersonData': personData }, () => {
-            populateAllFields(personData);
-
-            setTimeout(() => {
-              chrome.runtime.sendMessage({
-                action: 'updatePopupData',
-                data: personData,
-                updateStorage: true
-              }).catch(() => {
-              });
-            }, 0);
-          });
-        }
-      });
-      break;
+  
+              setTimeout(() => {
+                chrome.runtime.sendMessage({
+                  action: 'updatePopupData',
+                  data: personData,
+                  updateStorage: true
+                }).catch(() => {
+                });
+              }, 0);
+            });
+          }
+        });
+        break;
+    }
   }
 });
 
