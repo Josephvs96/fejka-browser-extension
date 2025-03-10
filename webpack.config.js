@@ -1,11 +1,16 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import CopyPlugin from 'copy-webpack-plugin';
+import webpack from 'webpack';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const isDevelopment = process.env.NODE_ENV === 'development';
+
 export default {
+  mode: isDevelopment ? 'development' : 'production',
+  devtool: isDevelopment ? 'eval-source-map' : false,
   entry: {
     popup: './src/popup/index.js',
     background: './src/background/background.js',
@@ -39,8 +44,14 @@ export default {
       patterns: [
         { from: 'manifest.json' },
         { from: 'public/images', to: 'images' },
-        { from: 'public/index.html', to: 'index.html' }
+        { 
+          from: isDevelopment ? 'public/popup.dev.html' : 'public/index.html',
+          to: 'index.html'
+        }
       ]
+    }),
+    new webpack.DefinePlugin({
+      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
     })
   ],
   devServer: {
@@ -48,6 +59,13 @@ export default {
       directory: path.join(__dirname, 'dist'),
     },
     compress: true,
-    port: 9000
+    port: 9000,
+    hot: true,
+    headers: {
+      'Access-Control-Allow-Origin': '*'
+    },
+    devMiddleware: {
+      writeToDisk: true
+    }
   }
 };

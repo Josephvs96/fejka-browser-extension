@@ -24,9 +24,10 @@ const Controls = ({ onGenerate, onPopulateForm, onClearData }) => {
           <div className="columns is-mobile mb-3">
             <div className="column pl-0 pr-1">
               <div className="field">
-                <label className="label is-small">Min Age</label>
+                <label className="label is-small" htmlFor="min-age">Min Age</label>
                 <div className="control">
                   <input 
+                    id="min-age"
                     className="input is-small" 
                     type="number" 
                     min="0" 
@@ -39,9 +40,10 @@ const Controls = ({ onGenerate, onPopulateForm, onClearData }) => {
             </div>
             <div className="column pr-0 pl-1">
               <div className="field">
-                <label className="label is-small">Max Age</label>
+                <label className="label is-small" htmlFor="max-age">Max Age</label>
                 <div className="control">
                   <input 
+                    id="max-age"
                     className="input is-small" 
                     type="number" 
                     min="0" 
@@ -55,10 +57,11 @@ const Controls = ({ onGenerate, onPopulateForm, onClearData }) => {
           </div>
         
           <div className="field">
-            <label className="label is-small">Gender</label>
+            <label className="label is-small" htmlFor="gender">Gender</label>
             <div className="control">
               <div className="select is-small is-fullwidth">
                 <select 
+                  id="gender"
                   value={gender}
                   onChange={(e) => setGender(e.target.value)}
                 >
