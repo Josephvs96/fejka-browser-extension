@@ -9,7 +9,7 @@
     "128": "images/icon128.png"
   },
   "action": {
-    "default_popup": "index.html",
+  "default_popup": "src/popup/index.html",
     "default_icon": "images/icon48.png"
   },
   "permissions": [
@@ -22,13 +22,13 @@
     "matches": ["<all_urls>"]
   }],
   "background": {
-    "service_worker": "background.js",
+    "service_worker": "src/background/background.js",
     "type": "module"
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"]
+      "js": ["src/content/content.js"]
     }
   ]
 }

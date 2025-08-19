@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, within } from '@testing-library/react';
-import PersonData from '../PersonData';
+import PersonData from '../PersonData.jsx';
 
 describe('PersonData Component', () => {
   const mockPersonData = {

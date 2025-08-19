@@ -26,8 +26,7 @@ A browser extension that helps populate web forms with generated Swedish persona
 ```
 ├── public/               # Static assets
 │   ├── images/          # Extension icons
-│   ├── index.html       # Popup HTML template
-│   └── popup.dev.html   # Development popup template
+│   └── index.html       # (not used for popup; kept for static assets)
 ├── src/                 # Source code
 │   ├── background/      # Chrome extension background script
 │   ├── content/         # Content script injected into web pages
@@ -79,7 +78,7 @@ A browser extension that helps populate web forms with generated Swedish persona
 
 The extension is built using:
 - React 18 for the popup interface
-- Webpack 5 for bundling
+- Vite + @crxjs/vite-plugin for bundling and HMR (MV3)
 - Jest for testing
 - Bulma CSS framework for styling
 - Font Awesome for icons
@@ -87,9 +86,9 @@ The extension is built using:
 
 To start development:
 1. Run `npm install` to install dependencies
-2. Run `npm run dev` to start the development server with hot-reload at http://localhost:9000
-3. Load the extension in your browser as described in the Installation section
-4. The popup will automatically connect to the development server for hot-reload
+2. Run `npm run dev` to start Vite's dev server
+3. In Chrome, open `chrome://extensions`, enable Developer Mode, click "Load unpacked" and select the `dist` folder that Vite/CRXJS outputs (it updates on rebuild)
+4. With `npm run dev` running, the extension supports HMR for popup and content scripts via CRXJS
 
 ### Testing
 The project uses Jest and React Testing Library for unit testing. To run tests:
